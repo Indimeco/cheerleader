@@ -3,7 +3,7 @@ resource "aws_lambda_function" "lambda_func" {
   function_name    = local.app_id
   handler          = "app"
   source_code_hash = base64sha256(data.archive_file.lambda_zip.output_path)
-  runtime          = "go1.x"
+  runtime          = "provided.al2023"
   role             = aws_iam_role.lambda_exec.arn
 }
 
