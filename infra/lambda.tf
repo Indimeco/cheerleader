@@ -18,13 +18,19 @@ resource "aws_iam_policy" "lambda_policy" {
           "dynamodb:GetItem",
           "dynamodb:BatchGetItem",
           "dynamodb:PutItem",
-          "logs:CreateLogGroup",
-          "logs:CreateLogStream",
-          "logs:PutLogEvents"
         ]
         Resource = [
           aws_dynamodb_table.score_table.arn
         ]
+      },
+      {
+        Effect = "Allow",
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ],
+        Resource = "*"
       }
     ]
   })
@@ -34,7 +40,7 @@ resource "aws_iam_role" "lambda_exec" {
   name_prefix = local.app_id
 
   assume_role_policy = jsonencode({
-    Version: 2012-10-17,
+    Version: "2012-10-17",
     Statement: [
       {
         Action: "sts:AssumeRole",
