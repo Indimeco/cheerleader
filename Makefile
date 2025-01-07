@@ -1,5 +1,18 @@
+.DEFAULT_GOAL := build
+
+.PHONY:fmt vet build
+
+clean:
+	go clean
+
+fmt: clean
+	go fmt ./...
+
+vet: fmt
+	go vet ./...
+
 build:
-	GOOS=linux GOARCH=arm64 go build -v -ldflags '-d -s' -a -tags netgo -installsuffix netgo -o build/bin/app .
+	GOOS=linux GOARCH=amd64 go build -o build/bootstrap .
 
 init:
 	terraform init infra
