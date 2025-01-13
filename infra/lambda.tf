@@ -5,6 +5,12 @@ resource "aws_lambda_function" "lambda_func" {
   source_code_hash = data.archive_file.lambda_zip.output_sha256
   runtime          = "provided.al2023"
   role             = aws_iam_role.lambda_exec.arn
+
+  environment {
+    variables = {
+      DDB_TABLE = aws_dynamodb_table.score_table.name
+    }
+  }
 }
 
 resource "aws_iam_policy" "lambda_policy" {

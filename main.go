@@ -47,7 +47,7 @@ func NewHandler(ctx context.Context) (Handler, error) {
 		return Handler{}, onceErr
 	}
 
-	tableName := os.Getenv("DDB_TABLENAME")
+	tableName := os.Getenv("DDB_TABLE")
 	if tableName == "" {
 		return Handler{}, errors.New("No ddb tablename specified in env")
 	}
