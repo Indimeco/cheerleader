@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"net/http"
 	"os"
 	"strconv"
@@ -81,6 +82,40 @@ func (s Score) GetKey() map[string]types.AttributeValue {
 	return map[string]types.AttributeValue{"pk": pkAttr, "sk": skAttr}
 }
 
+func NewScoreFromParams(params map[string]string) (Score, error) {
+	game, ok := params["game"]
+	if !ok {
+		return Score{}, errors.New("Expected a game")
+	}
+	sPlayerId, ok := params["player_id"]
+	if !ok {
+		return Score{}, errors.New("Expected a player_id")
+	}
+	playerId, err := strconv.Atoi(sPlayerId)
+	if err != nil {
+		return Score{}, errors.New("Unable to parse player_id")
+	}
+	sScore, ok := params["score"]
+	if !ok {
+		return Score{}, errors.New("Expected a score")
+	}
+	score, err := strconv.Atoi(sScore)
+	if err != nil {
+		return Score{}, errors.New("Unable to parse score")
+	}
+	playerName, ok := params["player_name"]
+	if !ok {
+		return Score{}, errors.New("Expected a player_name")
+	}
+
+	return Score{
+		playerId:   playerId,
+		playerName: playerName,
+		game:       game,
+		score:      score,
+	}, nil
+}
+
 func handleRequest(ctx context.Context, event events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	var err error
 	handler, err := NewHandler(ctx)
@@ -91,7 +126,15 @@ func handleRequest(ctx context.Context, event events.APIGatewayProxyRequest) (ev
 
 	switch event.HTTPMethod {
 	case "PUT":
-		err = handler.putScore(ctx, Score{game: "pp", score: 1, playerId: 1, playerName: "poomba"})
+		params := event.QueryStringParameters
+		score, err := NewScoreFromParams(params)
+		if err != nil {
+			return events.APIGatewayProxyResponse{
+				Body:       fmt.Sprint(err),
+				StatusCode: http.StatusBadRequest,
+			}, err
+		}
+		err = handler.putScore(ctx, score)
 		if err == nil {
 			return events.APIGatewayProxyResponse{
 				StatusCode: http.StatusCreated,
@@ -113,12 +156,16 @@ func handleRequest(ctx context.Context, event events.APIGatewayProxyRequest) (ev
 
 func (h Handler) putScore(ctx context.Context, score Score) error {
 	item, err := attributevalue.MarshalMap(score)
+	keys := score.GetKey()
+	maps.Copy(item, keys)
+
 	if err != nil {
 		return fmt.Errorf("Failed to marshall score: %w", err)
 	}
 
 	_, err = h.ddbClient.PutItem(ctx, &dynamodb.PutItemInput{
-		TableName: aws.String(h.tableName), Item: item,
+		TableName: aws.String(h.tableName),
+		Item:      item,
 	})
 	if err != nil {
 		return fmt.Errorf("Failed to put score: %w", err)
