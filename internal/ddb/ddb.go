@@ -35,12 +35,12 @@ func getDdbCompositeKey(s models.Score) map[string]types.AttributeValue {
 
 func PutScore(ctx context.Context, tableName string, client *dynamodb.Client, score models.Score) error {
 	item, err := attributevalue.MarshalMap(score)
-	keys := getDdbCompositeKey(score)
-	maps.Copy(item, keys)
-
 	if err != nil {
 		return fmt.Errorf("Failed to marshall score: %w", err)
 	}
+
+	keys := getDdbCompositeKey(score)
+	maps.Copy(item, keys)
 
 	_, err = client.PutItem(ctx, &dynamodb.PutItemInput{
 		TableName: aws.String(tableName),
@@ -62,6 +62,7 @@ func GetTopPlayerScores(ctx context.Context, tableName string, client *dynamodb.
 		ExpressionAttributeValues: expr.Values(),
 		KeyConditionExpression:    expr.KeyCondition(),
 		Limit:                     aws.Int32(int32(scoreRequest.Limit)),
+		ScanIndexForward:          aws.Bool(false), // reverse the sort order to get the highest scores
 	})
 	if err != nil {
 		return nil, fmt.Errorf("Failed to query player scores: %w", err)
@@ -70,7 +71,7 @@ func GetTopPlayerScores(ctx context.Context, tableName string, client *dynamodb.
 	scores := make([]models.Score, 0, items.Count)
 	for _, marshalledScore := range items.Items {
 		var score models.Score
-		err := attributevalue.UnmarshalMap(marshalledScore, score)
+		err := attributevalue.UnmarshalMap(marshalledScore, &score)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to unmarshall a score: %w", err)
 		}

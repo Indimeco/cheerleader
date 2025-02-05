@@ -78,14 +78,16 @@ func handleRequest(ctx context.Context, event events.APIGatewayProxyRequest) (ev
 		}
 		scores, err := handler.getTopPlayerScores(ctx, scoreRequest)
 		if err != nil {
-			out, err := json.Marshal(&scores)
-			if err == nil {
-				return events.APIGatewayProxyResponse{
-					Body:       string(out),
-					StatusCode: http.StatusOK,
-				}, nil
-			}
+			return handler.internalServerError(err), err
 		}
+		out, err := json.Marshal(&scores)
+		if err != nil {
+			return handler.internalServerError(err), err
+		}
+		return events.APIGatewayProxyResponse{
+			Body:       string(out),
+			StatusCode: http.StatusOK,
+		}, nil
 
 	case "PUT":
 		params := event.QueryStringParameters
@@ -97,23 +99,26 @@ func handleRequest(ctx context.Context, event events.APIGatewayProxyRequest) (ev
 			}, err
 		}
 		err = handler.putScore(ctx, score)
-		if err == nil {
-			return events.APIGatewayProxyResponse{
-				StatusCode: http.StatusCreated,
-			}, err
+		if err != nil {
+			return handler.internalServerError(err), err
 		}
+		return events.APIGatewayProxyResponse{
+			StatusCode: http.StatusCreated,
+		}, err
 	default:
 		return events.APIGatewayProxyResponse{
 			StatusCode: http.StatusMethodNotAllowed,
 			Body:       "Method not allowed",
 		}, nil
 	}
+}
 
-	// catch-all generic error handling
+func (h Handler) internalServerError(err error) events.APIGatewayProxyResponse {
+	h.logger.Error(fmt.Sprintf("Unexpected error: %v", err))
 	return events.APIGatewayProxyResponse{
 		StatusCode: http.StatusInternalServerError,
 		Body:       "Internal server error",
-	}, err
+	}
 }
 
 func (h Handler) putScore(ctx context.Context, score models.Score) error {
