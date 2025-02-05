@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"maps"
-	"strconv"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
@@ -21,7 +20,7 @@ func getDdbPk(playerId string, game string) string {
 
 func getDdbCompositeKey(s models.Score) map[string]types.AttributeValue {
 	pk := getDdbPk(s.PlayerId, s.Game)
-	sk := strconv.Itoa(s.Score)
+	sk := s.Score
 	pkAttr, err := attributevalue.Marshal(pk)
 	if err != nil {
 		panic(err)
@@ -34,7 +33,8 @@ func getDdbCompositeKey(s models.Score) map[string]types.AttributeValue {
 }
 
 func PutScore(ctx context.Context, tableName string, client *dynamodb.Client, score models.Score) error {
-	item, err := attributevalue.MarshalMap(score)
+	// We only need the PlayerName because the rest of the data is stored in the pk and sk
+	item, err := attributevalue.MarshalMap(struct{ PlayerName string }{PlayerName: score.PlayerName})
 	if err != nil {
 		return fmt.Errorf("Failed to marshall score: %w", err)
 	}

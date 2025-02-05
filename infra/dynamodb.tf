@@ -13,7 +13,7 @@ resource "aws_dynamodb_table" "score_table" {
 
   attribute {
     name = "sk"
-    type = "S"
+    type = "N"
   }
 
   ttl {

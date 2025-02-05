@@ -18,7 +18,7 @@ import (
 	"github.com/indimeco/cheerleader/internal/models"
 )
 
-type Handler struct {
+type handler struct {
 	ddbClient *dynamodb.Client
 	logger    *slog.Logger
 	tableName string
@@ -27,10 +27,10 @@ type Handler struct {
 var ddbClient *dynamodb.Client
 var once sync.Once
 
-func NewHandler(ctx context.Context) (Handler, error) {
+func newHandler(ctx context.Context) (handler, error) {
 	region := os.Getenv("AWS_REGION")
 	if region == "" {
-		return Handler{}, errors.New("No region specified in env")
+		return handler{}, errors.New("No region specified in env")
 	}
 
 	var onceErr error
@@ -43,15 +43,15 @@ func NewHandler(ctx context.Context) (Handler, error) {
 		ddbClient = dynamodb.NewFromConfig(cfg)
 	})
 	if onceErr != nil {
-		return Handler{}, onceErr
+		return handler{}, onceErr
 	}
 
 	tableName := os.Getenv("DDB_TABLE")
 	if tableName == "" {
-		return Handler{}, errors.New("No ddb tablename specified in env")
+		return handler{}, errors.New("No ddb tablename specified in env")
 	}
 
-	return Handler{
+	return handler{
 		ddbClient: ddbClient,
 		logger:    slog.Default(),
 		tableName: tableName,
@@ -60,7 +60,7 @@ func NewHandler(ctx context.Context) (Handler, error) {
 
 func handleRequest(ctx context.Context, event events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	var err error
-	handler, err := NewHandler(ctx)
+	handler, err := newHandler(ctx)
 	if err != nil {
 		// failure to get a handler is unrecoverable
 		panic(fmt.Errorf("Failed to get handler: %w", err))
@@ -113,7 +113,7 @@ func handleRequest(ctx context.Context, event events.APIGatewayProxyRequest) (ev
 	}
 }
 
-func (h Handler) internalServerError(err error) events.APIGatewayProxyResponse {
+func (h handler) internalServerError(err error) events.APIGatewayProxyResponse {
 	h.logger.Error(fmt.Sprintf("Unexpected error: %v", err))
 	return events.APIGatewayProxyResponse{
 		StatusCode: http.StatusInternalServerError,
@@ -121,7 +121,7 @@ func (h Handler) internalServerError(err error) events.APIGatewayProxyResponse {
 	}
 }
 
-func (h Handler) putScore(ctx context.Context, score models.Score) error {
+func (h handler) putScore(ctx context.Context, score models.Score) error {
 	err := ddb.PutScore(ctx, h.tableName, h.ddbClient, score)
 	if err != nil {
 		return fmt.Errorf("Failed to put score: %w", err)
@@ -130,7 +130,7 @@ func (h Handler) putScore(ctx context.Context, score models.Score) error {
 	return nil
 }
 
-func (h Handler) getTopPlayerScores(ctx context.Context, scoreRequest models.PlayerScoreRequest) ([]models.Score, error) {
+func (h handler) getTopPlayerScores(ctx context.Context, scoreRequest models.PlayerScoreRequest) ([]models.Score, error) {
 	scores, err := ddb.GetTopPlayerScores(ctx, h.tableName, h.ddbClient, scoreRequest)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get top player scores: %w", err)

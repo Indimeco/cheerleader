@@ -85,7 +85,7 @@ func createTestDdb(ctx context.Context) (*dynamodb.Client, func(), error) {
 			},
 			{
 				AttributeName: aws.String("sk"),
-				AttributeType: "S",
+				AttributeType: "N",
 			},
 		}})
 	if err != nil {
