@@ -2,22 +2,20 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
-	"maps"
 	"net/http"
 	"os"
-	"strconv"
 	"sync"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/indimeco/cheerleader/internal/ddb"
+	"github.com/indimeco/cheerleader/internal/models"
 )
 
 type Handler struct {
@@ -60,62 +58,6 @@ func NewHandler(ctx context.Context) (Handler, error) {
 	}, nil
 }
 
-type Score struct {
-	game       string
-	score      int
-	playerId   int
-	playerName string
-}
-
-// GetKey returns the composite key for DDB
-func (s Score) GetKey() map[string]types.AttributeValue {
-	pk := fmt.Sprintf("%v|%v", strconv.Itoa(s.playerId), s.game)
-	sk := strconv.Itoa(s.score)
-	pkAttr, err := attributevalue.Marshal(pk)
-	if err != nil {
-		panic(err)
-	}
-	skAttr, err := attributevalue.Marshal(sk)
-	if err != nil {
-		panic(err)
-	}
-	return map[string]types.AttributeValue{"pk": pkAttr, "sk": skAttr}
-}
-
-func NewScoreFromParams(params map[string]string) (Score, error) {
-	game, ok := params["game"]
-	if !ok {
-		return Score{}, errors.New("Expected a game")
-	}
-	sPlayerId, ok := params["player_id"]
-	if !ok {
-		return Score{}, errors.New("Expected a player_id")
-	}
-	playerId, err := strconv.Atoi(sPlayerId)
-	if err != nil {
-		return Score{}, errors.New("Unable to parse player_id")
-	}
-	sScore, ok := params["score"]
-	if !ok {
-		return Score{}, errors.New("Expected a score")
-	}
-	score, err := strconv.Atoi(sScore)
-	if err != nil {
-		return Score{}, errors.New("Unable to parse score")
-	}
-	playerName, ok := params["player_name"]
-	if !ok {
-		return Score{}, errors.New("Expected a player_name")
-	}
-
-	return Score{
-		playerId:   playerId,
-		playerName: playerName,
-		game:       game,
-		score:      score,
-	}, nil
-}
-
 func handleRequest(ctx context.Context, event events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	var err error
 	handler, err := NewHandler(ctx)
@@ -125,9 +67,29 @@ func handleRequest(ctx context.Context, event events.APIGatewayProxyRequest) (ev
 	}
 
 	switch event.HTTPMethod {
+	case "GET":
+		params := event.QueryStringParameters
+		scoreRequest, err := models.NewPlayerScoreRequestFromParams(params)
+		if err != nil {
+			return events.APIGatewayProxyResponse{
+				StatusCode: http.StatusBadRequest,
+				Body:       fmt.Sprint(err),
+			}, err
+		}
+		scores, err := handler.getTopPlayerScores(ctx, scoreRequest)
+		if err != nil {
+			out, err := json.Marshal(&scores)
+			if err == nil {
+				return events.APIGatewayProxyResponse{
+					Body:       string(out),
+					StatusCode: http.StatusOK,
+				}, nil
+			}
+		}
+
 	case "PUT":
 		params := event.QueryStringParameters
-		score, err := NewScoreFromParams(params)
+		score, err := models.NewScoreFromParams(params)
 		if err != nil {
 			return events.APIGatewayProxyResponse{
 				Body:       fmt.Sprint(err),
@@ -154,24 +116,21 @@ func handleRequest(ctx context.Context, event events.APIGatewayProxyRequest) (ev
 	}, err
 }
 
-func (h Handler) putScore(ctx context.Context, score Score) error {
-	item, err := attributevalue.MarshalMap(score)
-	keys := score.GetKey()
-	maps.Copy(item, keys)
-
-	if err != nil {
-		return fmt.Errorf("Failed to marshall score: %w", err)
-	}
-
-	_, err = h.ddbClient.PutItem(ctx, &dynamodb.PutItemInput{
-		TableName: aws.String(h.tableName),
-		Item:      item,
-	})
+func (h Handler) putScore(ctx context.Context, score models.Score) error {
+	err := ddb.PutScore(ctx, h.tableName, h.ddbClient, score)
 	if err != nil {
 		return fmt.Errorf("Failed to put score: %w", err)
 	}
 
 	return nil
+}
+
+func (h Handler) getTopPlayerScores(ctx context.Context, scoreRequest models.PlayerScoreRequest) ([]models.Score, error) {
+	scores, err := ddb.GetTopPlayerScores(ctx, h.tableName, h.ddbClient, scoreRequest)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get top player scores: %w", err)
+	}
+	return scores, nil
 }
 
 func main() {
