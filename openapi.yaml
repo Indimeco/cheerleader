@@ -52,7 +52,7 @@ paths:
         description: Number of ranks both above and below the given player's rank to return
     summary: Player rank by game
     get:
-      summary: Get ranks around a player's top score
+      summary: Get ranks around a player's top score within the top 1000 ranks
       operationId: getPlayerRanks
       responses:
         '200':
@@ -108,6 +108,8 @@ components:
           type: integer
           format: int64
           example: 123
+          minimum: 1
+          maximum: 2147483647
         playerName:
           type: string
           example: "Banana Lord"
@@ -122,10 +124,15 @@ components:
           type: integer
           format: int64
           example: 123
+          minimum: 1
+          maximum: 2147483647
         position:
           type: integer
           format: int64
+          description: "Only the first 1000 positions are tracked"
           example: 7
+          minimum: 1
+          maximum: 1000
         playerName:
           type: string
           example: Banana Lord
@@ -139,6 +146,8 @@ components:
       name: limit
       schema:
         type: integer
+        minimum: 1
+        maximum: 100
       required: true
       description: Maximum number of records to return
     game:
@@ -146,6 +155,8 @@ components:
       name: game
       schema:
         type: string
+        minLength: 1
+        maxLength: 32
       required: true
       description: Unique game identifier
     playerId:
@@ -153,5 +164,7 @@ components:
       name: player_id
       schema:
         type: string
+        minLength: 1
+        maxLength: 32
       required: true
       description: Unique player identifier

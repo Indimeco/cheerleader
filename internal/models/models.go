@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -26,41 +27,35 @@ type PlayerScoreRequest struct {
 	PlayerId string
 }
 
-func NewScoreFromParams(params map[string]string) (Score, error) {
-	game, ok := params["game"]
-	if !ok {
-		return Score{}, errors.New("Expected a game")
+func NewScoreFromParams(game string, playerId string, requestBody string) (Score, error) {
+	type body struct {
+		score      int
+		playerName string
 	}
-	playerId, ok := params["player_id"]
-	if !ok {
-		return Score{}, errors.New("Expected a player_id")
+	b := body{}
+	err := json.Unmarshal([]byte(requestBody), &b)
+	if err != nil {
+		return Score{}, fmt.Errorf("Failed to parse response body: %w", err)
 	}
-	sScore, ok := params["score"]
-	if !ok {
+	if b.score == 0 {
 		return Score{}, errors.New("Expected a score")
 	}
-	score, err := strconv.Atoi(sScore)
-	if err != nil {
-		return Score{}, fmt.Errorf("Unable to parse score: %w", err)
-	}
-	playerName, ok := params["player_name"]
-	if !ok {
+	if b.playerName == "" {
 		return Score{}, errors.New("Expected a player_name")
+	}
+	if len(b.playerName) > 32 {
+		return Score{}, errors.New("Player name was too long")
 	}
 
 	return Score{
 		PlayerId:   playerId,
-		PlayerName: playerName,
+		PlayerName: b.playerName,
 		Game:       game,
-		Score:      score,
+		Score:      b.score,
 	}, nil
 }
 
-func NewScoreRequestFromParams(params map[string]string) (ScoreRequest, error) {
-	game, ok := params["game"]
-	if !ok {
-		return ScoreRequest{}, errors.New("Expected a game")
-	}
+func NewScoreRequestFromParams(params map[string]string, game string) (ScoreRequest, error) {
 	limitStr, ok := params["limit"]
 	if !ok {
 		return ScoreRequest{}, errors.New("Expected a limit")
@@ -79,14 +74,10 @@ func NewScoreRequestFromParams(params map[string]string) (ScoreRequest, error) {
 	}, nil
 }
 
-func NewPlayerScoreRequestFromParams(params map[string]string) (PlayerScoreRequest, error) {
-	scoreRequest, err := NewScoreRequestFromParams(params)
+func NewPlayerScoreRequest(params map[string]string, game string, playerId string) (PlayerScoreRequest, error) {
+	scoreRequest, err := NewScoreRequestFromParams(params, game)
 	if err != nil {
 		return PlayerScoreRequest{}, err
-	}
-	playerId, ok := params["player_id"]
-	if !ok {
-		return PlayerScoreRequest{}, errors.New("Expected a player_id")
 	}
 
 	return PlayerScoreRequest{

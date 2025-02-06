@@ -8,6 +8,8 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"regexp"
+	"strings"
 	"sync"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -58,6 +60,44 @@ func newHandler(ctx context.Context) (handler, error) {
 	}, nil
 }
 
+type apiDefinition struct {
+	path     string
+	playerId string
+	game     string
+}
+type apiDescription struct {
+	regex           regexp.Regexp
+	hasGamePath     bool
+	hasPlayerIdPath bool
+}
+
+func eventPathToApiDefinition(path string) (apiDefinition, error) {
+	apiPaths := map[string]apiDescription{
+		"/{game}/{player_id}/scores": {regex: *regexp.MustCompile(`^/[\w\d]+/[\w\d]+/scores/?$`), hasGamePath: true, hasPlayerIdPath: true},
+		"/{game}/{player_id}/ranks":  {regex: *regexp.MustCompile(`^/[\w\d]+/[\w\d]+/ranks/?$`), hasGamePath: true, hasPlayerIdPath: true},
+		"/{game}/scores":             {regex: *regexp.MustCompile(`^/[\w\d]+/scores/?$`), hasGamePath: true},
+		"/{game}/ranks":              {regex: *regexp.MustCompile(`^/[\w\d]+/ranks/?$`), hasGamePath: true},
+	}
+
+	for k, v := range apiPaths {
+		definition := apiDefinition{}
+		if v.regex.Match([]byte(path)) {
+			definition.path = k
+			parts := strings.Split(path, "/")
+			if v.hasGamePath {
+				definition.game = parts[1]
+			}
+			if v.hasPlayerIdPath {
+				definition.playerId = parts[2]
+			}
+
+			return definition, nil
+		}
+	}
+
+	return apiDefinition{}, errors.New("No matching api found")
+}
+
 func handleRequest(ctx context.Context, event events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	var err error
 	handler, err := newHandler(ctx)
@@ -66,51 +106,91 @@ func handleRequest(ctx context.Context, event events.APIGatewayProxyRequest) (ev
 		panic(fmt.Errorf("Failed to get handler: %w", err))
 	}
 
-	switch event.HTTPMethod {
-	case "GET":
-		params := event.QueryStringParameters
-		scoreRequest, err := models.NewPlayerScoreRequestFromParams(params)
-		if err != nil {
-			return events.APIGatewayProxyResponse{
-				StatusCode: http.StatusBadRequest,
-				Body:       fmt.Sprint(err),
-			}, err
-		}
-		scores, err := handler.getTopPlayerScores(ctx, scoreRequest)
-		if err != nil {
-			return handler.internalServerError(err), err
-		}
-		out, err := json.Marshal(&scores)
-		if err != nil {
-			return handler.internalServerError(err), err
-		}
+	api, err := eventPathToApiDefinition(event.Path)
+	if err != nil {
 		return events.APIGatewayProxyResponse{
-			Body:       string(out),
-			StatusCode: http.StatusOK,
-		}, nil
-
-	case "PUT":
-		params := event.QueryStringParameters
-		score, err := models.NewScoreFromParams(params)
-		if err != nil {
-			return events.APIGatewayProxyResponse{
-				Body:       fmt.Sprint(err),
-				StatusCode: http.StatusBadRequest,
-			}, err
-		}
-		err = handler.putScore(ctx, score)
-		if err != nil {
-			return handler.internalServerError(err), err
-		}
-		return events.APIGatewayProxyResponse{
-			StatusCode: http.StatusCreated,
-		}, err
-	default:
-		return events.APIGatewayProxyResponse{
-			StatusCode: http.StatusMethodNotAllowed,
-			Body:       "Method not allowed",
+			StatusCode: http.StatusNotFound,
+			Body:       "Resource not found",
 		}, nil
 	}
+
+	switch api.path {
+	case "/{game}/{player_id}/scores":
+		{
+
+			switch event.HTTPMethod {
+			case "GET":
+				params := event.QueryStringParameters
+				scoreRequest, err := models.NewPlayerScoreRequest(params, api.game, api.playerId)
+				if err != nil {
+					return events.APIGatewayProxyResponse{
+						StatusCode: http.StatusBadRequest,
+						Body:       fmt.Sprint(err),
+					}, nil
+				}
+				scores, err := handler.getTopPlayerScores(ctx, scoreRequest)
+				if err != nil {
+					return handler.internalServerError(err), err
+				}
+				out, err := json.Marshal(&scores)
+				if err != nil {
+					return handler.internalServerError(err), err
+				}
+				return events.APIGatewayProxyResponse{
+					Body:       string(out),
+					StatusCode: http.StatusOK,
+				}, nil
+
+			case "PUT":
+				score, err := models.NewScoreFromParams(api.game, api.playerId, event.Body)
+				if err != nil {
+					return events.APIGatewayProxyResponse{
+						Body:       fmt.Sprint(err),
+						StatusCode: http.StatusBadRequest,
+					}, nil
+				}
+				err = handler.putScore(ctx, score)
+				if err != nil {
+					return handler.internalServerError(err), err
+				}
+				return events.APIGatewayProxyResponse{
+					StatusCode: http.StatusCreated,
+				}, nil
+			default:
+				return events.APIGatewayProxyResponse{
+					StatusCode: http.StatusMethodNotAllowed,
+					Body:       "Method not allowed",
+				}, nil
+			}
+		}
+	case "/{game}/{player_id}/ranks":
+		{
+			return events.APIGatewayProxyResponse{
+				StatusCode: http.StatusNotImplemented,
+				Body:       "Method not implemented",
+			}, nil
+
+		}
+	case "/{game}/scores":
+		{
+			return events.APIGatewayProxyResponse{
+				StatusCode: http.StatusNotImplemented,
+				Body:       "Method not implemented",
+			}, nil
+		}
+	case "/{game}/ranks":
+		{
+			return events.APIGatewayProxyResponse{
+				StatusCode: http.StatusNotImplemented,
+				Body:       "Method not implemented",
+			}, nil
+		}
+	}
+
+	return events.APIGatewayProxyResponse{
+		StatusCode: http.StatusInternalServerError,
+		Body:       "Failed to handle request",
+	}, nil
 }
 
 func (h handler) internalServerError(err error) events.APIGatewayProxyResponse {
