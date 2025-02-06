@@ -1,0 +1,157 @@
+openapi: 3.0.3
+info:
+  title: Cheerleader
+  description: A minimial leaderboard api
+  license:
+    name: MIT
+    url: https://github.com/Indimeco/cheerleader/blob/main/LICENSE
+  version: 1.0.0
+paths:
+  /{game}/{player_id}/scores:
+    parameters:
+      - $ref: '#/components/parameters/game'
+      - $ref: '#/components/parameters/playerId'
+    get:
+      summary: Get top scores for a player
+      operationId: getPlayerScores
+      parameters:
+        - $ref: '#/components/parameters/limit'
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Scores'
+        '400':
+          description: Bad request
+    put:
+      summary: Record a new score for a player
+      operationId: addScore
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Score'
+        required: true
+      responses:
+        '201':
+          description: Successful operation
+        '400':
+          description: Bad request
+  /{game}/{player_id}/ranks:
+    parameters:
+      - $ref: '#/components/parameters/game'
+      - $ref: '#/components/parameters/playerId'
+      - $ref: '#/components/parameters/limit'
+      - in: query
+        name: ranks_around
+        schema:
+          type: string
+        required: true
+        description: Number of ranks both above and below the given player's rank to return
+    summary: Player rank by game
+    get:
+      summary: Get ranks around a player's top score
+      operationId: getPlayerRanks
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ranks'
+        '400':
+          description: Bad request
+  /{game}/scores:
+    parameters:
+      - $ref: '#/components/parameters/game'
+    summary: Player scores by game
+    get:
+      summary: Get top scores across players
+      operationId: getScores
+      parameters:
+        - $ref: '#/components/parameters/limit'
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Scores'
+        '400':
+          description: Bad request
+  /{game}/ranks:
+    parameters:
+      - $ref: '#/components/parameters/game'
+    summary: Player ranks by game
+    get:
+      summary: Get top ranks across players
+      operationId: getRanks
+      parameters:
+        - $ref: '#/components/parameters/limit'
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ranks'
+        '400':
+          description: Bad request
+components:
+  schemas:
+    Score:
+      type: object
+      properties:
+        score:
+          type: integer
+          format: int64
+          example: 123
+        playerName:
+          type: string
+          example: "Banana Lord"
+    Scores:
+      type: array
+      items:
+        $ref: '#/components/schemas/Score'
+    Rank:
+      type: object
+      properties:
+        score:
+          type: integer
+          format: int64
+          example: 123
+        position:
+          type: integer
+          format: int64
+          example: 7
+        playerName:
+          type: string
+          example: Banana Lord
+    Ranks:
+      type: array
+      items: 
+        $ref: '#/components/schemas/Rank'
+  parameters:
+    limit:
+      in: query
+      name: limit
+      schema:
+        type: integer
+      required: true
+      description: Maximum number of records to return
+    game:
+      in: path
+      name: game
+      schema:
+        type: string
+      required: true
+      description: Unique game identifier
+    playerId:
+      in: path
+      name: player_id
+      schema:
+        type: string
+      required: true
+      description: Unique player identifier
