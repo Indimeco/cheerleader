@@ -4,10 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"strconv"
 	"strings"
-
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
 type Score struct {
@@ -27,31 +26,33 @@ type PlayerScoreRequest struct {
 	PlayerId string
 }
 
+type putNewScoreRequestBody struct {
+	Score      int    `json:"score"`
+	PlayerName string `json:"playerName"`
+}
+
 func NewScoreFromParams(game string, playerId string, requestBody string) (Score, error) {
-	type body struct {
-		score      int
-		playerName string
-	}
-	b := body{}
+	b := putNewScoreRequestBody{}
 	err := json.Unmarshal([]byte(requestBody), &b)
 	if err != nil {
 		return Score{}, fmt.Errorf("Failed to parse response body: %w", err)
 	}
-	if b.score == 0 {
+	fmt.Println(b)
+	if b.Score == 0 {
 		return Score{}, errors.New("Expected a score")
 	}
-	if b.playerName == "" {
+	if b.PlayerName == "" {
 		return Score{}, errors.New("Expected a player_name")
 	}
-	if len(b.playerName) > 32 {
+	if len(b.PlayerName) > 32 {
 		return Score{}, errors.New("Player name was too long")
 	}
 
 	return Score{
 		PlayerId:   playerId,
-		PlayerName: b.playerName,
+		PlayerName: b.PlayerName,
 		Game:       game,
-		Score:      b.score,
+		Score:      b.Score,
 	}, nil
 }
 
@@ -117,16 +118,29 @@ func (s *Score) UnmarshalDynamoDBAttributeValue(av types.AttributeValue) error {
 				}
 				s.Score = score
 			}
-		case "PlayerName":
+		case "pname":
 			{
 
 				str, ok := kv.(*types.AttributeValueMemberS)
 				if !ok {
-					return errors.New("Wrong type stored at PlayerName")
+					return errors.New("Wrong type stored at pname")
 				}
 				s.PlayerName = str.Value
 			}
 		}
 	}
 	return nil
+}
+
+// Fulfills the Marshaler interface https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue#Marshaler
+func (s *Score) MarshalDynamoDBAttributeValue() (types.AttributeValue, error) {
+	m := make(map[string]types.AttributeValue)
+	score := strconv.Itoa(s.Score)
+	m["pk"] = &types.AttributeValueMemberS{Value: fmt.Sprintf("%s|%s", s.PlayerId, s.Game)}
+	m["sk"] = &types.AttributeValueMemberN{Value: score}
+	m["game"] = &types.AttributeValueMemberS{Value: s.Game}
+	m["pname"] = &types.AttributeValueMemberS{Value: s.PlayerName}
+	return &types.AttributeValueMemberM{
+		Value: m,
+	}, nil
 }

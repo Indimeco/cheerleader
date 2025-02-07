@@ -87,7 +87,35 @@ func createTestDdb(ctx context.Context) (*dynamodb.Client, func(), error) {
 				AttributeName: aws.String("sk"),
 				AttributeType: "N",
 			},
-		}})
+			{
+				AttributeName: aws.String("game"),
+				AttributeType: "S",
+			},
+		},
+		GlobalSecondaryIndexes: []types.GlobalSecondaryIndex{
+			{
+				IndexName: aws.String("GameScoresIndex"),
+				KeySchema: []types.KeySchemaElement{
+					{
+						AttributeName: aws.String("game"),
+						KeyType:       "HASH",
+					},
+					{
+						AttributeName: aws.String("sk"),
+						KeyType:       "SORT",
+					},
+				},
+				Projection: &types.Projection{
+					ProjectionType:   "INCLUDE",
+					NonKeyAttributes: []string{"pname"},
+				},
+				ProvisionedThroughput: &types.ProvisionedThroughput{
+					ReadCapacityUnits:  aws.Int64(1),
+					WriteCapacityUnits: aws.Int64(1),
+				},
+			},
+		},
+	})
 	if err != nil {
 		return nil, close, fmt.Errorf("Failed to create table: %w", err)
 	}

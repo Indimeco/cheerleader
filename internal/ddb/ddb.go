@@ -3,7 +3,6 @@ package ddb
 import (
 	"context"
 	"fmt"
-	"maps"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
@@ -33,14 +32,7 @@ func getDdbCompositeKey(s models.Score) map[string]types.AttributeValue {
 }
 
 func PutScore(ctx context.Context, tableName string, client *dynamodb.Client, score models.Score) error {
-	// We only need the PlayerName because the rest of the data is stored in the pk and sk
-	item, err := attributevalue.MarshalMap(struct{ PlayerName string }{PlayerName: score.PlayerName})
-	if err != nil {
-		return fmt.Errorf("Failed to marshall score: %w", err)
-	}
-
-	keys := getDdbCompositeKey(score)
-	maps.Copy(item, keys)
+	item, err := attributevalue.MarshalMap(&score)
 
 	_, err = client.PutItem(ctx, &dynamodb.PutItemInput{
 		TableName: aws.String(tableName),
