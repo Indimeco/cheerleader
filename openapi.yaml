@@ -63,24 +63,6 @@ paths:
                 $ref: '#/components/schemas/Ranks'
         '400':
           description: Bad request
-  /{game}/scores:
-    parameters:
-      - $ref: '#/components/parameters/game'
-    summary: Player scores by game
-    get:
-      summary: Get top scores across players
-      operationId: getScores
-      parameters:
-        - $ref: '#/components/parameters/limit'
-      responses:
-        '200':
-          description: Successful operation
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Scores'
-        '400':
-          description: Bad request
   /{game}/ranks:
     parameters:
       - $ref: '#/components/parameters/game'

@@ -65,13 +65,13 @@ type apiDefinition struct {
 	playerId string
 	game     string
 }
-type apiDescription struct {
-	regex           regexp.Regexp
-	hasGamePath     bool
-	hasPlayerIdPath bool
-}
 
 func eventPathToApiDefinition(path string) (apiDefinition, error) {
+	type apiDescription struct {
+		regex           regexp.Regexp
+		hasGamePath     bool
+		hasPlayerIdPath bool
+	}
 	apiPaths := map[string]apiDescription{
 		"/{game}/{player_id}/scores": {regex: *regexp.MustCompile(`^/[\w\d]+/[\w\d]+/scores/?$`), hasGamePath: true, hasPlayerIdPath: true},
 		"/{game}/{player_id}/ranks":  {regex: *regexp.MustCompile(`^/[\w\d]+/[\w\d]+/ranks/?$`), hasGamePath: true, hasPlayerIdPath: true},
@@ -170,13 +170,6 @@ func handleRequest(ctx context.Context, event events.APIGatewayProxyRequest) (ev
 				Body:       "Method not implemented",
 			}, nil
 
-		}
-	case "/{game}/scores":
-		{
-			return events.APIGatewayProxyResponse{
-				StatusCode: http.StatusNotImplemented,
-				Body:       "Method not implemented",
-			}, nil
 		}
 	case "/{game}/ranks":
 		{
