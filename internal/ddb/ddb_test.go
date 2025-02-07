@@ -319,7 +319,7 @@ func TestGetTopRanks(t *testing.T) {
 		Score:      124,
 	}
 
-	want := []models.Rank{
+	want := models.Ranks{
 		{
 			Position:   1,
 			PlayerName: "Bananalord",

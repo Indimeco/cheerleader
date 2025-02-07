@@ -73,12 +73,71 @@ func TestNewScoreFromParams(t *testing.T) {
 	}
 	`
 
-	result, err := NewScoreFromParams("tag", "goosey", body)
+	result, err := NewScore("tag", "goosey", body)
 	if err != nil {
 		t.Errorf("want nil, got %v", err)
 	}
 	diff := cmp.Diff(want, result)
 	if diff != "" {
 		t.Errorf("mismatch (want +, got -)\n%v", diff)
+	}
+}
+
+func TestRanksBinarySearch(t *testing.T) {
+	ranks := Ranks{
+		{Position: 1, PlayerName: "Albus", Score: 100},
+		{Position: 2, PlayerName: "Harry", Score: 50},
+		{Position: 3, PlayerName: "Potter", Score: 20},
+		{Position: 4, PlayerName: "Dobby", Score: 10},
+	}
+
+	search := ranks.BinarySearch(100, 0, len(ranks))
+	if search != 0 {
+		t.Errorf("wanted to find index at %v, got %v", 0, search)
+	}
+	search = ranks.BinarySearch(50, 0, len(ranks))
+	if search != 1 {
+		t.Errorf("wanted to find index at %v, got %v", 1, search)
+	}
+	search = ranks.BinarySearch(20, 0, len(ranks))
+	if search != 2 {
+		t.Errorf("wanted to find index at %v, got %v", 2, search)
+	}
+	search = ranks.BinarySearch(10, 0, len(ranks))
+	if search != 3 {
+		t.Errorf("wanted to find index at %v, got %v", 3, search)
+	}
+}
+
+func TestRanksAround(t *testing.T) {
+
+	r0 := Rank{Position: 1, PlayerName: "Albus", Score: 100}
+	r1 := Rank{Position: 2, PlayerName: "Harry", Score: 50}
+	r2 := Rank{Position: 3, PlayerName: "Potter", Score: 20}
+	r3 := Rank{Position: 4, PlayerName: "Dobby", Score: 10}
+	ranks := Ranks{
+		r0, r1, r2, r3,
+	}
+
+	got := ranks.Around(0, 1)
+	want := Ranks{r0, r1}
+	diff := cmp.Diff(want, got)
+	if diff != "" {
+		t.Errorf("mismatch (-want, got +)\n%v", diff)
+	}
+
+	got = ranks.Around(1, 2)
+	want = Ranks{r0, r1, r2, r3}
+	diff = cmp.Diff(want, got)
+	if diff != "" {
+		t.Errorf("mismatch (-want, got +)\n%v", diff)
+	}
+
+	got = ranks.Around(2, 1)
+	want = Ranks{r1, r2, r3}
+	diff = cmp.Diff(got, want)
+	diff = cmp.Diff(want, got)
+	if diff != "" {
+		t.Errorf("mismatch (-want, got +)\n%v", diff)
 	}
 }

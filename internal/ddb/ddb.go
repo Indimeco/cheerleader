@@ -79,7 +79,7 @@ func GetTopPlayerScores(ctx context.Context, tableName string, client *dynamodb.
  */
 const ddbMaxRanksLimit = 1000
 
-func GetTopRanks(ctx context.Context, tableName string, client *dynamodb.Client, game string) ([]models.Rank, error) {
+func GetTopRanks(ctx context.Context, tableName string, client *dynamodb.Client, game string) (models.Ranks, error) {
 	keyEx := expression.Key("game").Equal(expression.Value(game))
 	expr, err := expression.NewBuilder().WithKeyCondition(keyEx).Build()
 	if err != nil {
@@ -98,7 +98,7 @@ func GetTopRanks(ctx context.Context, tableName string, client *dynamodb.Client,
 		return nil, fmt.Errorf("Failed to query player ranks: %w", err)
 	}
 
-	ranks := make([]models.Rank, 0, items.Count)
+	ranks := make(models.Ranks, 0, items.Count)
 	for i, marshalledRank := range items.Items {
 		var rank models.Rank
 		err := attributevalue.UnmarshalMap(marshalledRank, &rank)

@@ -32,6 +32,8 @@ type Rank struct {
 	PlayerName string `dynamodbav:"pname"`
 }
 
+type Ranks []Rank
+
 func NewScore(game string, playerId string, requestBody string) (Score, error) {
 	type putNewScoreRequestBody struct {
 		Score      int    `json:"score"`
@@ -148,4 +150,41 @@ func (s *Score) MarshalDynamoDBAttributeValue() (types.AttributeValue, error) {
 	return &types.AttributeValueMemberM{
 		Value: m,
 	}, nil
+}
+
+// func binarySearch returns -1 if the score is not in the ranks, otherwise the index of the score within the ranks
+func (r Ranks) BinarySearch(score int, left int, right int) int {
+	mid := (right-left)/2 + left
+	if left > right {
+		return -1
+	}
+	if r[mid].Score == score {
+		return mid
+	}
+	if r[mid].Score > score {
+		return r.BinarySearch(score, mid+1, right)
+	}
+	return r.BinarySearch(score, left, right-1)
+}
+
+func (r Ranks) Around(index int, around int) Ranks {
+	if len(r)-1 < index {
+		return Ranks{}
+	}
+	out := make(Ranks, 0, around*2+1)
+	// ranks before
+	for i := around; i > 0; i-- {
+		if index-i >= 0 {
+			out = append(out, r[index-i])
+		}
+	}
+	// the index rank
+	out = append(out, r[index])
+	// ranks after
+	for i := 1; i < around+1; i++ {
+		if index+i <= len(r)-1 {
+			out = append(out, r[index+i])
+		}
+	}
+	return out
 }

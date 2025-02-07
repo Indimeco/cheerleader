@@ -142,7 +142,7 @@ func handleRequest(ctx context.Context, event events.APIGatewayProxyRequest) (ev
 				}, nil
 
 			case "PUT":
-				score, err := models.NewScoreFromParams(api.game, api.playerId, event.Body)
+				score, err := models.NewScore(api.game, api.playerId, event.Body)
 				if err != nil {
 					return events.APIGatewayProxyResponse{
 						Body:       fmt.Sprint(err),
@@ -191,7 +191,6 @@ func handleRequest(ctx context.Context, event events.APIGatewayProxyRequest) (ev
 				Body:       string(out),
 				StatusCode: http.StatusOK,
 			}, nil
-
 		}
 	}
 
@@ -226,12 +225,27 @@ func (h handler) getTopPlayerScores(ctx context.Context, scoreRequest models.Pla
 	return scores, nil
 }
 
-func (h handler) getTopRanks(ctx context.Context, game string) ([]models.Rank, error) {
+func (h handler) getTopRanks(ctx context.Context, game string) (models.Ranks, error) {
 	ranks, err := ddb.GetTopRanks(ctx, h.tableName, h.ddbClient, game)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get top ranks: %w", err)
 	}
 	return ranks, nil
+}
+
+func (h handler) getRanksAroundScore(ctx context.Context, game string, score int, around int) (models.Ranks, error) {
+	ranks, err := ddb.GetTopRanks(ctx, h.tableName, h.ddbClient, game)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get top ranks: %w", err)
+	}
+
+	index := ranks.BinarySearch(score, 0, len(ranks))
+	if index == -1 {
+		return nil, nil
+	}
+	ranksAround := ranks.Around(index, around)
+
+	return ranksAround, nil
 }
 
 func main() {
