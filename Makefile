@@ -25,3 +25,6 @@ apply:
 
 destroy:
 	terraform destroy --auto-approve infra
+
+deploy: build apply
+
