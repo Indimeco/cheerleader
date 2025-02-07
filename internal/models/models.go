@@ -26,12 +26,17 @@ type PlayerScoreRequest struct {
 	PlayerId string
 }
 
-type putNewScoreRequestBody struct {
-	Score      int    `json:"score"`
-	PlayerName string `json:"playerName"`
+type Rank struct {
+	Score      int    `dynamodbav:"sk"`
+	Position   int    `dynamodbav:"-"`
+	PlayerName string `dynamodbav:"pname"`
 }
 
-func NewScoreFromParams(game string, playerId string, requestBody string) (Score, error) {
+func NewScore(game string, playerId string, requestBody string) (Score, error) {
+	type putNewScoreRequestBody struct {
+		Score      int    `json:"score"`
+		PlayerName string `json:"playerName"`
+	}
 	b := putNewScoreRequestBody{}
 	err := json.Unmarshal([]byte(requestBody), &b)
 	if err != nil {
@@ -56,7 +61,7 @@ func NewScoreFromParams(game string, playerId string, requestBody string) (Score
 	}, nil
 }
 
-func NewScoreRequestFromParams(params map[string]string, game string) (ScoreRequest, error) {
+func NewScoreRequest(params map[string]string, game string) (ScoreRequest, error) {
 	limitStr, ok := params["limit"]
 	if !ok {
 		return ScoreRequest{}, errors.New("Expected a limit")
@@ -76,7 +81,7 @@ func NewScoreRequestFromParams(params map[string]string, game string) (ScoreRequ
 }
 
 func NewPlayerScoreRequest(params map[string]string, game string, playerId string) (PlayerScoreRequest, error) {
-	scoreRequest, err := NewScoreRequestFromParams(params, game)
+	scoreRequest, err := NewScoreRequest(params, game)
 	if err != nil {
 		return PlayerScoreRequest{}, err
 	}

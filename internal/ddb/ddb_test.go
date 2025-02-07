@@ -298,3 +298,63 @@ func TestGetTopPlayerScoresWithUserGameIsolation(t *testing.T) {
 		t.Errorf("mismatch (-want +got):\n%s", diff)
 	}
 }
+
+func TestGetTopRanks(t *testing.T) {
+	score1 := models.Score{
+		PlayerId:   "2",
+		PlayerName: "Bananalord",
+		Game:       "Comedy",
+		Score:      100,
+	}
+	score2 := models.Score{
+		PlayerId:   "2",
+		PlayerName: "Bananalord",
+		Game:       "Comedy",
+		Score:      150,
+	}
+	score3 := models.Score{
+		PlayerId:   "5",
+		PlayerName: "Mongoose",
+		Game:       "Comedy",
+		Score:      124,
+	}
+
+	want := []models.Rank{
+		{
+			Position:   1,
+			PlayerName: "Bananalord",
+			Score:      150,
+		},
+		{
+			Position:   2,
+			PlayerName: "Mongoose",
+			Score:      124,
+		},
+		{
+			Position:   3,
+			PlayerName: "Bananalord",
+			Score:      100,
+		},
+	}
+
+	ctx := context.Background()
+	err := PutScore(ctx, tableName, globalTestClient, score1)
+	if err != nil {
+		t.Fatalf("Expected nil error, got %v", err)
+	}
+	err = PutScore(ctx, tableName, globalTestClient, score2)
+	if err != nil {
+		t.Fatalf("Expected nil error, got %v", err)
+	}
+	err = PutScore(ctx, tableName, globalTestClient, score3)
+	if err != nil {
+		t.Fatalf("Expected nil error, got %v", err)
+	}
+	ranks, err := GetTopRanks(ctx, tableName, globalTestClient, "Comedy")
+	if err != nil {
+		t.Fatalf("Expected nil error, got %v", err)
+	}
+	if diff := cmp.Diff(want, ranks); diff != "" {
+		t.Errorf("mismatch (-want +got):\n%s", diff)
+	}
+}

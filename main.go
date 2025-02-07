@@ -173,10 +173,25 @@ func handleRequest(ctx context.Context, event events.APIGatewayProxyRequest) (ev
 		}
 	case "/{game}/ranks":
 		{
+			if event.HTTPMethod != "GET" {
+				return events.APIGatewayProxyResponse{
+					StatusCode: http.StatusMethodNotAllowed,
+					Body:       "Method not allowed",
+				}, nil
+			}
+			ranks, err := handler.getTopRanks(ctx, api.game)
+			if err != nil {
+				return handler.internalServerError(err), err
+			}
+			out, err := json.Marshal(&ranks)
+			if err != nil {
+				return handler.internalServerError(err), err
+			}
 			return events.APIGatewayProxyResponse{
-				StatusCode: http.StatusNotImplemented,
-				Body:       "Method not implemented",
+				Body:       string(out),
+				StatusCode: http.StatusOK,
 			}, nil
+
 		}
 	}
 
@@ -209,6 +224,14 @@ func (h handler) getTopPlayerScores(ctx context.Context, scoreRequest models.Pla
 		return nil, fmt.Errorf("Failed to get top player scores: %w", err)
 	}
 	return scores, nil
+}
+
+func (h handler) getTopRanks(ctx context.Context, game string) ([]models.Rank, error) {
+	ranks, err := ddb.GetTopRanks(ctx, h.tableName, h.ddbClient, game)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get top ranks: %w", err)
+	}
+	return ranks, nil
 }
 
 func main() {
