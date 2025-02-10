@@ -73,7 +73,7 @@ func GetTopPlayerScores(ctx context.Context, tableName string, client *dynamodb.
 }
 
 /**
-* ddbMaxRanksLimit is set in order to simplify the possible load placed on any given instance of the service
+* DdbMaxRanksLimit is set in order to simplify the possible load placed on any given instance of the service
 * the constraint prevents expensive query operations and ensures fast response time by limiting the rank requests to a single 'page' of data
 * 1000 is very appoximately the maximum theoretical size that DDB can return in one response given the 1MB limitation and the maximum data size of a single rank
  */

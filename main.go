@@ -165,11 +165,31 @@ func handleRequest(ctx context.Context, event events.APIGatewayProxyRequest) (ev
 		}
 	case "/{game}/{player_id}/ranks":
 		{
+			if event.HTTPMethod != "GET" {
+				return events.APIGatewayProxyResponse{
+					StatusCode: http.StatusMethodNotAllowed,
+					Body:       "Method not allowed",
+				}, nil
+			}
+			ranksRequest, err := models.NewPlayerRanksRequest(event.QueryStringParameters, api.game, api.playerId)
+			if err != nil {
+				return events.APIGatewayProxyResponse{
+					Body:       fmt.Sprint(err),
+					StatusCode: http.StatusBadRequest,
+				}, nil
+			}
+			ranksAround, err := handler.getRanksAroundPlayer(ctx, ranksRequest.Game, ranksRequest.PlayerId, ranksRequest.Around)
+			if err != nil {
+				return handler.internalServerError(err), err
+			}
+			out, err := json.Marshal(&ranksAround)
+			if err != nil {
+				return handler.internalServerError(err), err
+			}
 			return events.APIGatewayProxyResponse{
-				StatusCode: http.StatusNotImplemented,
-				Body:       "Method not implemented",
+				Body:       string(out),
+				StatusCode: http.StatusOK,
 			}, nil
-
 		}
 	case "/{game}/ranks":
 		{
@@ -233,15 +253,28 @@ func (h handler) getTopRanks(ctx context.Context, game string) (models.Ranks, er
 	return ranks, nil
 }
 
-func (h handler) getRanksAroundScore(ctx context.Context, game string, score int, around int) (models.Ranks, error) {
+func (h handler) getRanksAroundPlayer(ctx context.Context, game string, playerId string, around int) (models.Ranks, error) {
+	playerScores, err := ddb.GetTopPlayerScores(ctx, h.tableName, h.ddbClient, models.PlayerScoreRequest{
+		PlayerId:     playerId,
+		ScoreRequest: models.ScoreRequest{Game: game, Limit: 1},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get top player score: %w", err)
+	}
+	// Player hasn't scored yet
+	if len(playerScores) < 1 {
+		return models.Ranks{}, nil
+	}
+	topScore := playerScores[0]
 	ranks, err := ddb.GetTopRanks(ctx, h.tableName, h.ddbClient, game)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get top ranks: %w", err)
 	}
 
-	index := ranks.BinarySearch(score, 0, len(ranks))
+	index := ranks.BinarySearch(topScore.Score, 0, len(ranks))
+	// Player is not ranked
 	if index == -1 {
-		return nil, nil
+		return models.Ranks{}, nil
 	}
 	ranksAround := ranks.Around(index, around)
 

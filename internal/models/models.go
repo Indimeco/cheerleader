@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"strconv"
 	"strings"
+
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
 type Score struct {
@@ -34,6 +35,17 @@ type Rank struct {
 
 type Ranks []Rank
 
+type RanksRequest struct {
+	Game  string
+	Limit int
+}
+
+type PlayerRanksRequest struct {
+	Game     string
+	Around   int
+	PlayerId string
+}
+
 func NewScore(game string, playerId string, requestBody string) (Score, error) {
 	type putNewScoreRequestBody struct {
 		Score      int    `json:"score"`
@@ -44,7 +56,6 @@ func NewScore(game string, playerId string, requestBody string) (Score, error) {
 	if err != nil {
 		return Score{}, fmt.Errorf("Failed to parse response body: %w", err)
 	}
-	fmt.Println(b)
 	if b.Score == 0 {
 		return Score{}, errors.New("Expected a score")
 	}
@@ -91,6 +102,47 @@ func NewPlayerScoreRequest(params map[string]string, game string, playerId strin
 	return PlayerScoreRequest{
 		scoreRequest,
 		playerId,
+	}, nil
+}
+
+func NewRanksRequest(params map[string]string, game string) (RanksRequest, error) {
+	limitStr, ok := params["limit"]
+	if !ok {
+		return RanksRequest{}, errors.New("Expected a limit")
+	}
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil {
+		return RanksRequest{}, fmt.Errorf("Failed to parse limit: %w", err)
+	}
+	if limit > 1000 || limit < 0 {
+		return RanksRequest{}, errors.New("Limit must be between 0 and 1000")
+	}
+	return RanksRequest{
+		game,
+		limit,
+	}, nil
+}
+
+func NewPlayerRanksRequest(params map[string]string, game string, playerId string) (PlayerRanksRequest, error) {
+	aroundStr, ok := params["ranks_around"]
+	if !ok {
+		return PlayerRanksRequest{}, errors.New("Expected ranks_around")
+	}
+	around, err := strconv.Atoi(aroundStr)
+	if err != nil {
+		return PlayerRanksRequest{}, fmt.Errorf("Failed to parse ranks_around: %w", err)
+	}
+	if around > 500 || around < 0 {
+		return PlayerRanksRequest{}, errors.New("ranks_around must be between 0 and 500")
+	}
+	if err != nil {
+		return PlayerRanksRequest{}, err
+	}
+
+	return PlayerRanksRequest{
+		Game:     game,
+		Around:   around,
+		PlayerId: playerId,
 	}, nil
 }
 
