@@ -17,7 +17,6 @@ func NewApiRoutes() ApiRoutes {
 	return ApiRoutes{
 		ScoresByPlayer: "/{game}/{player_id}/scores",
 		RanksByPlayer:  "/{game}/{player_id}/ranks",
-		Scores:         "/{game}/scores",
 		Ranks:          "/{game}/ranks",
 	}
 }
@@ -38,7 +37,6 @@ func EventPathToApiDefinition(path string) (ApiDefinition, error) {
 	apiPaths := map[string]apiDescription{
 		routes.ScoresByPlayer: {regex: *regexp.MustCompile(`^/[\w\d]+/[\w\d]+/scores/?$`), hasGamePath: true, hasPlayerIdPath: true},
 		routes.RanksByPlayer:  {regex: *regexp.MustCompile(`^/[\w\d]+/[\w\d]+/ranks/?$`), hasGamePath: true, hasPlayerIdPath: true},
-		routes.Scores:         {regex: *regexp.MustCompile(`^/[\w\d]+/scores/?$`), hasGamePath: true},
 		routes.Ranks:          {regex: *regexp.MustCompile(`^/[\w\d]+/ranks/?$`), hasGamePath: true},
 	}
 

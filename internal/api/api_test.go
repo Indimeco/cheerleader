@@ -13,7 +13,6 @@ func TestValidApiPaths(t *testing.T) {
 		{input: "/pp1/abc/scores/", want: ApiDefinition{Route: "/{game}/{player_id}/scores", Game: "pp1", PlayerId: "abc"}},
 		{input: "/1/sasa/scores", want: ApiDefinition{Route: "/{game}/{player_id}/scores", Game: "1", PlayerId: "sasa"}},
 		{input: "/duck/goose/ranks", want: ApiDefinition{Route: "/{game}/{player_id}/ranks", Game: "duck", PlayerId: "goose"}},
-		{input: "/duck/scores", want: ApiDefinition{Route: "/{game}/scores", Game: "duck", PlayerId: ""}},
 		{input: "/duck/ranks", want: ApiDefinition{Route: "/{game}/ranks", Game: "duck", PlayerId: ""}},
 		{input: "/duck/ranks/", want: ApiDefinition{Route: "/{game}/ranks", Game: "duck", PlayerId: ""}},
 	}
