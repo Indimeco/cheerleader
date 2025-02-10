@@ -41,7 +41,16 @@ resource "aws_iam_policy" "lambda_policy" {
           "dynamodb:Query",
         ]
         Resource = [
-          aws_dynamodb_table.score_table.arn
+          aws_dynamodb_table.score_table.arn,
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:Query",
+        ]
+        Resource = [
+          "${aws_dynamodb_table.score_table.arn}/index/*",
         ]
       },
       {
