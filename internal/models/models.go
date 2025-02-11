@@ -12,10 +12,11 @@ import (
 )
 
 type Score struct {
-	Game       string
-	Score      int
-	PlayerId   string
-	PlayerName string
+	Game       string `json:"game"`
+	Score      int    `json:"score"`
+	PlayerId   string `json:"playerId"`
+	PlayerName string `json:"playerName"`
+	Timestamp  int    `json:"timestamp"`
 }
 
 type ScoreRequest struct {
@@ -29,9 +30,10 @@ type PlayerScoreRequest struct {
 }
 
 type Rank struct {
-	Score      int    `dynamodbav:"sk"`
-	Position   int    `dynamodbav:"-"`
-	PlayerName string `dynamodbav:"pname"`
+	Score      int    `json:"score" dynamodbav:"sk"`
+	Position   int    `json:"position" dynamodbav:"-"`
+	PlayerName string `json:"playerName" dynamodbav:"pname"`
+	Timestamp  int    `json:"timestamp" dynamodbav:"ts"`
 }
 
 type Ranks []Rank
@@ -72,6 +74,7 @@ func NewScore(game string, playerId string, requestBody string) (Score, error) {
 		PlayerName: b.PlayerName,
 		Game:       game,
 		Score:      b.Score,
+		Timestamp:  int(time.Now().Unix()),
 	}, nil
 }
 
@@ -187,6 +190,19 @@ func (s *Score) UnmarshalDynamoDBAttributeValue(av types.AttributeValue) error {
 				}
 				s.PlayerName = str.Value
 			}
+		case "ts":
+			{
+				i, ok := kv.(*types.AttributeValueMemberN)
+				if !ok {
+					return errors.New("Wrong type stored at timestamp")
+				}
+				ts, err := strconv.Atoi(i.Value)
+				if err != nil {
+					return fmt.Errorf("Failed to parse timestamp for score: %w", err)
+				}
+				s.Timestamp = ts
+
+			}
 		}
 	}
 	return nil
@@ -201,6 +217,7 @@ func (s *Score) MarshalDynamoDBAttributeValue() (types.AttributeValue, error) {
 	m["game"] = &types.AttributeValueMemberS{Value: s.Game}
 	m["pname"] = &types.AttributeValueMemberS{Value: s.PlayerName}
 	m["ttl"] = &types.AttributeValueMemberN{Value: strconv.Itoa(int(time.Now().AddDate(1, 0, 0).Unix()))}
+	m["ts"] = &types.AttributeValueMemberN{Value: strconv.Itoa(s.Timestamp)}
 	return &types.AttributeValueMemberM{
 		Value: m,
 	}, nil

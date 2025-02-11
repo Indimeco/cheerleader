@@ -6,6 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
 func TestMarshalScore(t *testing.T) {
@@ -77,7 +78,7 @@ func TestNewScoreFromParams(t *testing.T) {
 	if err != nil {
 		t.Errorf("want nil, got %v", err)
 	}
-	diff := cmp.Diff(want, result)
+	diff := cmp.Diff(want, result, cmpopts.IgnoreFields(Score{}, "Timestamp"))
 	if diff != "" {
 		t.Errorf("mismatch (want +, got -)\n%v", diff)
 	}
