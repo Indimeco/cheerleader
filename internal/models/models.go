@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
@@ -199,6 +200,7 @@ func (s *Score) MarshalDynamoDBAttributeValue() (types.AttributeValue, error) {
 	m["sk"] = &types.AttributeValueMemberN{Value: score}
 	m["game"] = &types.AttributeValueMemberS{Value: s.Game}
 	m["pname"] = &types.AttributeValueMemberS{Value: s.PlayerName}
+	m["ttl"] = &types.AttributeValueMemberN{Value: strconv.Itoa(int(time.Now().AddDate(1, 0, 0).Unix()))}
 	return &types.AttributeValueMemberM{
 		Value: m,
 	}, nil

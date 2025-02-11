@@ -21,6 +21,11 @@ resource "aws_dynamodb_table" "score_table" {
     name = "game"
     type = "S"
   }
+
+  ttl {
+    attribute_name = "ttl"
+    enabled = true
+  }
   
   global_secondary_index {
     name = "GameScoresIndex"
@@ -30,10 +35,5 @@ resource "aws_dynamodb_table" "score_table" {
     read_capacity = 10
     projection_type    = "INCLUDE"
     non_key_attributes = ["pname"]
-  }
-
-  ttl {
-    attribute_name = "ttl"
-    enabled        = true
   }
 }
