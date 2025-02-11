@@ -18,9 +18,9 @@ import (
 	tcdynamodb "github.com/testcontainers/testcontainers-go/modules/dynamodb"
 )
 
-const tableName = "test_table"
-
 var globalTestClient *dynamodb.Client
+
+const testTableName = "test_table"
 
 type DynamoDBLocalResolver struct {
 	hostAndPort string
@@ -32,9 +32,9 @@ func (r *DynamoDBLocalResolver) ResolveEndpoint(ctx context.Context, params dyna
 	}, nil
 }
 
-// func createTestDdb creates a new dynamodb client, a closer and an error
+// func createTestDdbClient creates a new dynamodb client, a closer and an error
 // the closer should always be called, regardless of if an error occurred during client creation
-func createTestDdb(ctx context.Context) (*dynamodb.Client, func(), error) {
+func createTestDdbClient(ctx context.Context) (*dynamodb.Client, func(), error) {
 	dynamodbContainer, err := tcdynamodb.Run(ctx, "amazon/dynamodb-local:2.2.1")
 	close := func() {
 		if err := testcontainers.TerminateContainer(dynamodbContainer); err != nil {
@@ -63,7 +63,7 @@ func createTestDdb(ctx context.Context) (*dynamodb.Client, func(), error) {
 	client := dynamodb.NewFromConfig(cfg, dynamodb.WithEndpointResolverV2(&DynamoDBLocalResolver{hostAndPort: hostPort}))
 
 	_, err = client.CreateTable(ctx, &dynamodb.CreateTableInput{
-		TableName: aws.String(tableName),
+		TableName: aws.String(testTableName),
 		ProvisionedThroughput: &types.ProvisionedThroughput{
 			ReadCapacityUnits:  aws.Int64(1),
 			WriteCapacityUnits: aws.Int64(1),
@@ -123,9 +123,17 @@ func createTestDdb(ctx context.Context) (*dynamodb.Client, func(), error) {
 	return client, close, nil
 }
 
+func createTestDynamoScoreDatabase() DynamoScoreDatabase {
+	return DynamoScoreDatabase{
+		client:    globalTestClient,
+		rankLimit: 1000,
+		tableName: testTableName,
+	}
+}
+
 func TestMain(m *testing.M) {
 	ctx := context.Background()
-	client, close, err := createTestDdb(ctx)
+	client, close, err := createTestDdbClient(ctx)
 	defer close()
 	if err != nil {
 		panic(fmt.Sprintf("Failed to get test client: %v", err))
@@ -143,7 +151,8 @@ func TestPutScore(t *testing.T) {
 		Game:       "Tetris",
 		Score:      100,
 	}
-	err := PutScore(ctx, tableName, globalTestClient, score)
+	d := createTestDynamoScoreDatabase()
+	err := d.PutScore(ctx, score)
 	if err != nil {
 		t.Errorf("Expected nil error, got %v", err)
 	}
@@ -168,12 +177,13 @@ func TestGetTopPlayerScores(t *testing.T) {
 		score1,
 	}
 
+	d := createTestDynamoScoreDatabase()
 	ctx := context.Background()
-	err := PutScore(ctx, tableName, globalTestClient, score1)
+	err := d.PutScore(ctx, score1)
 	if err != nil {
 		t.Fatalf("Expected nil error, got %v", err)
 	}
-	err = PutScore(ctx, tableName, globalTestClient, score2)
+	err = d.PutScore(ctx, score2)
 	if err != nil {
 		t.Fatalf("Expected nil error, got %v", err)
 	}
@@ -184,7 +194,7 @@ func TestGetTopPlayerScores(t *testing.T) {
 		},
 		PlayerId: "2",
 	}
-	scores, err := GetTopPlayerScores(ctx, tableName, globalTestClient, scoreRequest)
+	scores, err := d.GetTopPlayerScores(ctx, scoreRequest)
 	if err != nil {
 		t.Fatalf("Expected nil error, got %v", err)
 	}
@@ -211,12 +221,13 @@ func TestGetTopPlayerScoresWithLimit(t *testing.T) {
 		score2,
 	}
 
+	d := createTestDynamoScoreDatabase()
 	ctx := context.Background()
-	err := PutScore(ctx, tableName, globalTestClient, score1)
+	err := d.PutScore(ctx, score1)
 	if err != nil {
 		t.Fatalf("Expected nil error, got %v", err)
 	}
-	err = PutScore(ctx, tableName, globalTestClient, score2)
+	err = d.PutScore(ctx, score2)
 	if err != nil {
 		t.Fatalf("Expected nil error, got %v", err)
 	}
@@ -227,7 +238,7 @@ func TestGetTopPlayerScoresWithLimit(t *testing.T) {
 		},
 		PlayerId: "2",
 	}
-	scores, err := GetTopPlayerScores(ctx, tableName, globalTestClient, scoreRequest)
+	scores, err := d.GetTopPlayerScores(ctx, scoreRequest)
 	if err != nil {
 		t.Fatalf("Expected nil error, got %v", err)
 	}
@@ -266,20 +277,21 @@ func TestGetTopPlayerScoresWithUserGameIsolation(t *testing.T) {
 		score2,
 	}
 
+	d := createTestDynamoScoreDatabase()
 	ctx := context.Background()
-	err := PutScore(ctx, tableName, globalTestClient, score1)
+	err := d.PutScore(ctx, score1)
 	if err != nil {
 		t.Fatalf("Expected nil error, got %v", err)
 	}
-	err = PutScore(ctx, tableName, globalTestClient, score2)
+	err = d.PutScore(ctx, score2)
 	if err != nil {
 		t.Fatalf("Expected nil error, got %v", err)
 	}
-	err = PutScore(ctx, tableName, globalTestClient, score3)
+	err = d.PutScore(ctx, score3)
 	if err != nil {
 		t.Fatalf("Expected nil error, got %v", err)
 	}
-	err = PutScore(ctx, tableName, globalTestClient, score4)
+	err = d.PutScore(ctx, score4)
 	if err != nil {
 		t.Fatalf("Expected nil error, got %v", err)
 	}
@@ -290,7 +302,7 @@ func TestGetTopPlayerScoresWithUserGameIsolation(t *testing.T) {
 		},
 		PlayerId: "4",
 	}
-	scores, err := GetTopPlayerScores(ctx, tableName, globalTestClient, scoreRequest)
+	scores, err := d.GetTopPlayerScores(ctx, scoreRequest)
 	if err != nil {
 		t.Fatalf("Expected nil error, got %v", err)
 	}
@@ -337,20 +349,21 @@ func TestGetTopRanks(t *testing.T) {
 		},
 	}
 
+	d := createTestDynamoScoreDatabase()
 	ctx := context.Background()
-	err := PutScore(ctx, tableName, globalTestClient, score1)
+	err := d.PutScore(ctx, score1)
 	if err != nil {
 		t.Fatalf("Expected nil error, got %v", err)
 	}
-	err = PutScore(ctx, tableName, globalTestClient, score2)
+	err = d.PutScore(ctx, score2)
 	if err != nil {
 		t.Fatalf("Expected nil error, got %v", err)
 	}
-	err = PutScore(ctx, tableName, globalTestClient, score3)
+	err = d.PutScore(ctx, score3)
 	if err != nil {
 		t.Fatalf("Expected nil error, got %v", err)
 	}
-	ranks, err := GetTopRanks(ctx, tableName, globalTestClient, "Comedy")
+	ranks, err := d.GetTopRanks(ctx, models.RanksRequest{Game: "Comedy"})
 	if err != nil {
 		t.Fatalf("Expected nil error, got %v", err)
 	}

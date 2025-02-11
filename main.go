@@ -115,7 +115,14 @@ func handleRequest(ctx context.Context, event events.APIGatewayProxyRequest) (ev
 					Body:       "Method not allowed",
 				}, nil
 			}
-			ranks, err := h.GetTopRanks(ctx, apiDefinition.Game)
+			ranksRequest, err := models.NewRanksRequest(event.QueryStringParameters, apiDefinition.Game)
+			if err != nil {
+				return events.APIGatewayProxyResponse{
+					StatusCode: http.StatusBadRequest,
+					Body:       fmt.Sprint(err),
+				}, nil
+			}
+			ranks, err := h.GetTopRanks(ctx, ranksRequest)
 			if err != nil {
 				return internalServerError(&h, err), err
 			}

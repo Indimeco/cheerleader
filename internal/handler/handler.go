@@ -2,60 +2,38 @@ package handler
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
-	"os"
-	"sync"
 
-	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/indimeco/cheerleader/internal/ddb"
 	"github.com/indimeco/cheerleader/internal/models"
 )
 
 type Handler struct {
-	ddbClient *dynamodb.Client
-	Logger    *slog.Logger
-	tableName string
+	Database HandlerDatabase
+	Logger   *slog.Logger
 }
 
-var ddbClient *dynamodb.Client
-var once sync.Once
+type HandlerDatabase interface {
+	PutScore(context.Context, models.Score) error
+	GetTopPlayerScores(context.Context, models.PlayerScoreRequest) ([]models.Score, error)
+	GetTopRanks(context.Context, models.RanksRequest) (models.Ranks, error)
+}
 
 func New(ctx context.Context) (Handler, error) {
-	region := os.Getenv("AWS_REGION")
-	if region == "" {
-		return Handler{}, errors.New("No region specified in env")
-	}
-
-	var onceErr error
-	once.Do(func() {
-		cfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(region))
-
-		if err != nil {
-			onceErr = fmt.Errorf("Failed to get aws config: %w", err)
-		}
-		ddbClient = dynamodb.NewFromConfig(cfg)
-	})
-	if onceErr != nil {
-		return Handler{}, onceErr
-	}
-
-	tableName := os.Getenv("DDB_TABLE")
-	if tableName == "" {
-		return Handler{}, errors.New("No ddb tablename specified in env")
+	ddbClient, err := ddb.New(ctx)
+	if err != nil {
+		return Handler{}, fmt.Errorf("Failed to get database: %w", err)
 	}
 
 	return Handler{
-		ddbClient: ddbClient,
-		Logger:    slog.Default(),
-		tableName: tableName,
+		Database: ddbClient,
+		Logger:   slog.Default(),
 	}, nil
 }
 
 func (h Handler) PutScore(ctx context.Context, score models.Score) error {
-	err := ddb.PutScore(ctx, h.tableName, h.ddbClient, score)
+	err := h.Database.PutScore(ctx, score)
 	if err != nil {
 		return fmt.Errorf("Failed to put score: %w", err)
 	}
@@ -64,15 +42,15 @@ func (h Handler) PutScore(ctx context.Context, score models.Score) error {
 }
 
 func (h Handler) GetTopPlayerScores(ctx context.Context, scoreRequest models.PlayerScoreRequest) ([]models.Score, error) {
-	scores, err := ddb.GetTopPlayerScores(ctx, h.tableName, h.ddbClient, scoreRequest)
+	scores, err := h.Database.GetTopPlayerScores(ctx, scoreRequest)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get top player scores: %w", err)
 	}
 	return scores, nil
 }
 
-func (h Handler) GetTopRanks(ctx context.Context, game string) (models.Ranks, error) {
-	ranks, err := ddb.GetTopRanks(ctx, h.tableName, h.ddbClient, game)
+func (h Handler) GetTopRanks(ctx context.Context, ranksRequest models.RanksRequest) (models.Ranks, error) {
+	ranks, err := h.Database.GetTopRanks(ctx, ranksRequest)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get top ranks: %w", err)
 	}
@@ -80,7 +58,7 @@ func (h Handler) GetTopRanks(ctx context.Context, game string) (models.Ranks, er
 }
 
 func (h Handler) GetRanksAroundPlayer(ctx context.Context, game string, playerId string, around int) (models.Ranks, error) {
-	playerScores, err := ddb.GetTopPlayerScores(ctx, h.tableName, h.ddbClient, models.PlayerScoreRequest{
+	playerScores, err := h.Database.GetTopPlayerScores(ctx, models.PlayerScoreRequest{
 		PlayerId:     playerId,
 		ScoreRequest: models.ScoreRequest{Game: game, Limit: 1},
 	})
@@ -92,7 +70,7 @@ func (h Handler) GetRanksAroundPlayer(ctx context.Context, game string, playerId
 		return models.Ranks{}, nil
 	}
 	topScore := playerScores[0]
-	ranks, err := ddb.GetTopRanks(ctx, h.tableName, h.ddbClient, game)
+	ranks, err := h.Database.GetTopRanks(ctx, models.RanksRequest{})
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get top ranks: %w", err)
 	}
