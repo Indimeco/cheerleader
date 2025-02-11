@@ -60,7 +60,7 @@ func (h Handler) GetTopPlayerScores(ctx context.Context, apiDefinition api.ApiDe
 	}
 	out, err := json.Marshal(&scores)
 	if err != nil {
-		return h.ResponseInternalServerError(err)
+		return h.ResponseInternalServerError(fmt.Errorf("Failed to marshal top player scores: %w", err))
 	}
 	return h.ResponseOk(string(out))
 }
@@ -76,7 +76,7 @@ func (h Handler) GetTopRanks(ctx context.Context, apiDefinition api.ApiDefinitio
 	}
 	out, err := json.Marshal(&ranks)
 	if err != nil {
-		return h.ResponseInternalServerError(err)
+		return h.ResponseInternalServerError(fmt.Errorf("Failed to marshal top ranks: %w", err))
 	}
 	return h.ResponseOk(string(out))
 }
@@ -114,7 +114,7 @@ func (h Handler) GetRanksAroundPlayer(ctx context.Context, apiDefinition api.Api
 
 	out, err := json.Marshal(&ranksAround)
 	if err != nil {
-		return h.ResponseInternalServerError(err)
+		return h.ResponseInternalServerError(fmt.Errorf("Failed to marshal player ranks: %w", err))
 	}
 	return h.ResponseOk(string(out))
 }
