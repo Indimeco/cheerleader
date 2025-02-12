@@ -11,6 +11,7 @@ import (
 	"github.com/indimeco/cheerleader/internal/api"
 	"github.com/indimeco/cheerleader/internal/ddb"
 	"github.com/indimeco/cheerleader/internal/models"
+	"golang.org/x/sync/errgroup"
 )
 
 type Handler struct {
@@ -82,17 +83,37 @@ func (h Handler) GetTopRanks(ctx context.Context, apiDefinition api.ApiDefinitio
 }
 
 func (h Handler) GetRanksAroundPlayer(ctx context.Context, apiDefinition api.ApiDefinition, params map[string]string) events.APIGatewayProxyResponse {
-	ranksRequest, err := models.NewPlayerRanksRequest(params, apiDefinition.Game, apiDefinition.PlayerId)
+	playerRanksRequest, err := models.NewPlayerRanksRequest(params, apiDefinition.Game, apiDefinition.PlayerId)
 	if err != nil {
 		return h.ResponseBadRequest(err)
 	}
 
-	playerScores, err := h.Database.GetTopPlayerScores(ctx, models.PlayerScoreRequest{
-		PlayerId:     apiDefinition.PlayerId,
-		ScoreRequest: models.ScoreRequest{Game: apiDefinition.Game, Limit: 1},
+	var playerScores []models.Score
+	var ranks models.Ranks
+	g := new(errgroup.Group)
+
+	g.Go(func() error {
+		scores, err := h.Database.GetTopPlayerScores(ctx, models.PlayerScoreRequest{
+			PlayerId:     apiDefinition.PlayerId,
+			ScoreRequest: models.ScoreRequest{Game: apiDefinition.Game, Limit: 1},
+		})
+
+		if err != nil {
+			return fmt.Errorf("Failed to get top player score: %w", err)
+		}
+		playerScores = scores
+		return nil
 	})
-	if err != nil {
-		return h.ResponseInternalServerError(fmt.Errorf("Failed to get top player score: %w", err))
+	g.Go(func() error {
+		allRanks, err := h.Database.GetTopRanks(ctx, models.RanksRequest{Game: apiDefinition.Game})
+		if err != nil {
+			return fmt.Errorf("Failed to get top ranks: %w", err)
+		}
+		ranks = allRanks
+		return nil
+	})
+	if err := g.Wait(); err != nil {
+		return h.ResponseInternalServerError(err)
 	}
 
 	// Player hasn't scored yet
@@ -100,17 +121,13 @@ func (h Handler) GetRanksAroundPlayer(ctx context.Context, apiDefinition api.Api
 		return h.ResponseOk("[]")
 	}
 	topScore := playerScores[0]
-	ranks, err := h.Database.GetTopRanks(ctx, models.RanksRequest{})
-	if err != nil {
-		return h.ResponseInternalServerError(fmt.Errorf("Failed to get top ranks: %w", err))
-	}
 
 	index := ranks.BinarySearch(topScore.Score, 0, len(ranks))
 	// Player is not ranked
 	if index == -1 {
 		return h.ResponseOk("[]")
 	}
-	ranksAround := ranks.Around(index, ranksRequest.Around)
+	ranksAround := ranks.Around(index, playerRanksRequest.Around)
 
 	out, err := json.Marshal(&ranksAround)
 	if err != nil {

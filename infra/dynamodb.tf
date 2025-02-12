@@ -34,6 +34,6 @@ resource "aws_dynamodb_table" "score_table" {
     write_capacity = 10
     read_capacity = 10
     projection_type    = "INCLUDE"
-    non_key_attributes = ["pname"]
+    non_key_attributes = ["pname", "ts"]
   }
 }

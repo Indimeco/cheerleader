@@ -107,7 +107,7 @@ func createTestDdbClient(ctx context.Context) (*dynamodb.Client, func(), error) 
 				},
 				Projection: &types.Projection{
 					ProjectionType:   "INCLUDE",
-					NonKeyAttributes: []string{"pname"},
+					NonKeyAttributes: []string{"pname", "ts"},
 				},
 				ProvisionedThroughput: &types.ProvisionedThroughput{
 					ReadCapacityUnits:  aws.Int64(1),
@@ -317,18 +317,21 @@ func TestGetTopRanks(t *testing.T) {
 		PlayerName: "Bananalord",
 		Game:       "Comedy",
 		Score:      100,
+		Timestamp:  333,
 	}
 	score2 := models.Score{
 		PlayerId:   "2",
 		PlayerName: "Bananalord",
 		Game:       "Comedy",
 		Score:      150,
+		Timestamp:  111,
 	}
 	score3 := models.Score{
 		PlayerId:   "5",
 		PlayerName: "Mongoose",
 		Game:       "Comedy",
 		Score:      124,
+		Timestamp:  222,
 	}
 
 	want := models.Ranks{
@@ -336,16 +339,19 @@ func TestGetTopRanks(t *testing.T) {
 			Position:   1,
 			PlayerName: "Bananalord",
 			Score:      150,
+			Timestamp:  111,
 		},
 		{
 			Position:   2,
 			PlayerName: "Mongoose",
 			Score:      124,
+			Timestamp:  222,
 		},
 		{
 			Position:   3,
 			PlayerName: "Bananalord",
 			Score:      100,
+			Timestamp:  333,
 		},
 	}
 
